@@ -1,0 +1,18 @@
+{
+    "name": "深度求索进阶版",
+    "author": "黑桃A",
+    "namespace": "DeepseekAdvanced",
+    "info": "基于Deepseek AI的智能聊天插件，支持前缀触发、频率限制、个人预设和上下文管理。使用 .deepseek help 查看管理指令。",
+    "version": "0.0.1",
+    "svn": 1,
+    "compatible_svn": 100,
+    "message_mode": "old_string",
+    "priority": 10000,
+    "support": [
+        {
+            "sdk": "onebot",
+            "platform": "qq",
+            "model": "default"
+        }
+    ]
+}
