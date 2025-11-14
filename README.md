@@ -1,3 +1,6 @@
+### 站外链接OlivOS论坛
+-  点击跳转到[OlivOS论坛-深度求索进阶版-DeepseekAdvanced](https://forum.olivos.run/d/873-deepseekadvanced)
+
 **使用前必须配置：请使用解压软件解压插件压缩包，找到 `DeepseekAdvanced/main.py` 文件，用文本编辑器打开，搜索 `MASTER_USERS` 配置项（约在第50行），将 `['2139497594']` 中的QQ号替换为你自己的QQ号，保存文件后重启OlivOS，确保你拥有管理员权限。**
 
 具体步骤：
@@ -8,8 +11,6 @@
 5. **修改QQ号**：将 `['2139497594']` 中的数字替换为你的QQ号，例如 `['123456789']`
 6. **保存重启**：保存文件后重启OlivOS服务
 7. **验证权限**：使用 `.deepseek help` 命令验证是否拥有管理员权限
-
-基于 Deepseek AI 的智能聊天插件，支持前缀触发、频率限制、个人预设和上下文管理。
 
 ## 🎯 功能特性
 
@@ -36,7 +37,7 @@
 - Deepseek API Key
 
 ### 安装步骤
-1. 将插件文件夹放置于 `plugin/tmp/DeepseekAdvanced/` 目录下
+1. 将插件文件夹放置于 `plugin/app/` 目录下
 2. 重启 OlivOS 服务
 3. 获取 Deepseek API Key
 4. 使用 Master 账号配置 API Key
@@ -293,3 +294,4 @@ MIT License
 - 平台使用规定  
 - AI 服务商的使用条款
 - 尊重他人隐私和权益
+
