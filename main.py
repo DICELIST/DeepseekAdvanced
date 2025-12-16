@@ -106,6 +106,11 @@ dictStrCustom = {
     'strUserLockedSuccess': '用户 {tTargetName} 已锁定',
     'strUserUnlockedSuccess': '用户 {tTargetName} 已解锁',
     'strUserClearedSuccess': '用户 {tTargetName} 记录已清空',
+    'strUserDetail': '''用户详情:
+用户ID: {tTargetName}
+使用次数: {tUseCount}
+最后使用: {tLastUsed}
+状态: {tStatus}''',
     'strSystemStatus': '''系统状态:
 用户总数: {tUserCount}
 群聊功能: {tGroupStatus}
@@ -471,140 +476,8 @@ def unity_reply(plugin_event):
                 return int(cooldown_end - current_time)
         return 0
     
-    if tmp_reast_str.startswith('#chat'):
-        if not config["api_key"]:
-            plugin_event.reply("API Key未配置，请联系管理员")
-            return
-        
-        if not config.get("global_enabled", True):
-            plugin_event.reply(dictStrCustom['strGlobalDisabled'])
-            return
-        
-        if config.get("enable_review", False):
-            plugin_event.reply(dictStrCustom['strReviewProcessing'])
-        
-        if plugin_event.plugin_info['func_type'] == 'group_message' and not config["enable_group"]:
-            return
-        if plugin_event.plugin_info['func_type'] == 'private_message' and not config["enable_private"]:
-            return
-        
-        user_data = load_user_data(tmp_userID)
-        if user_data["is_locked"]:
-            plugin_event.reply(dictStrCustom['strUserLocked'])
-            return
-        
-        banned_word = check_banned_words(tmp_reast_str)
-        if banned_word:
-            plugin_event.reply(dictStrCustom['strBannedWordFound'])
-            return
-        
-        cooldown_remaining = check_cooldown(tmp_userID)
-        if cooldown_remaining > 0:
-            dictTValue_local['tContent'] = str(cooldown_remaining)
-            tmp_reply_str = format_reply_str(dictStrCustom['strCooldown'], dictTValue_local)
-            plugin_event.reply(tmp_reply_str)
-            return
-        
-        prompt = tmp_reast_str[5:].strip()
-        if not prompt:
-            plugin_event.reply(dictStrCustom['strNoContent'])
-            return
-        
-        banned_word = check_banned_words(prompt)
-        if banned_word:
-            plugin_event.reply(dictStrCustom['strBannedWordFound'])
-            return
-        
-        response = call_deepseek_api(prompt, tmp_userID)
-        if response:
-            plugin_event.reply(response)
-        else:
-            plugin_event.reply(dictStrCustom['strAPICallFailed'])
-        return
-    
-    elif tmp_reast_str == '.chat help':
-        dictTValue_local['tCooldown'] = str(config["cooldown_time"])
-        dictTValue_local['tContext'] = str(config["max_context"])
-        tmp_reply_str = format_reply_str(dictStrCustom['strHelpCommon'], dictTValue_local)
-        plugin_event.reply(tmp_reply_str)
-        return
-    
-    elif tmp_reast_str == '.chat clear':
-        if clear_user_session(tmp_userID):
-            plugin_event.reply(dictStrCustom['strClearSuccess'])
-        else:
-            plugin_event.reply(dictStrCustom['strClearFailed'])
-        return
-    
-    elif tmp_reast_str == '.chat config' or tmp_reast_str == '.chat myconfig':
-        user_data = load_user_data(tmp_userID)
-        dictTValue_local['tPersonalPrompt'] = user_data.get("custom_prompt", "未设置")
-        dictTValue_local['tPersonalSystem'] = user_data.get("system_prompt", "未设置")
-        dictTValue_local['tUseCount'] = str(user_data["use_count"])
-        if user_data["last_used"]:
-            dictTValue_local['tLastUsed'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(user_data["last_used"]))
-        else:
-            dictTValue_local['tLastUsed'] = '从未使用'
-        tmp_reply_str = format_reply_str(dictStrCustom['strPersonalConfig'], dictTValue_local)
-        plugin_event.reply(tmp_reply_str)
-        return
-    
-    elif tmp_reast_str.startswith('.chat show'):
-        parts = tmp_reast_str.split()
-        if len(parts) >= 2:
-            show_type = parts[1] if len(parts) > 1 else ''
-            user_data = load_user_data(tmp_userID)
-            
-            if show_type == 'prompt':
-                content = user_data.get("custom_prompt", "未设置")
-                dictTValue_local['tContent'] = content
-                tmp_reply_str = format_reply_str(dictStrCustom['strPersonalPrompt'], dictTValue_local)
-                plugin_event.reply(tmp_reply_str)
-                return
-            elif show_type == 'system':
-                content = user_data.get("system_prompt", "未设置")
-                dictTValue_local['tContent'] = content
-                tmp_reply_str = format_reply_str(dictStrCustom['strPersonalSystem'], dictTValue_local)
-                plugin_event.reply(tmp_reply_str)
-                return
-    
-    elif tmp_reast_str.startswith('.chat set'):
-        parts = tmp_reast_str.split()
-        if len(parts) >= 3:
-            set_type = parts[1] if len(parts) > 1 else ''
-            set_value = ' '.join(parts[2:])
-            
-            user_data = load_user_data(tmp_userID)
-            
-            if set_type == 'prompt':
-                user_data["custom_prompt"] = set_value
-                save_user_data(tmp_userID, user_data)
-                plugin_event.reply(dictStrCustom['strPersonalPromptSet'])
-                return
-            elif set_type == 'system':
-                user_data["system_prompt"] = set_value
-                save_user_data(tmp_userID, user_data)
-                plugin_event.reply(dictStrCustom['strPersonalSystemSet'])
-                return
-    
-    elif tmp_reast_str.startswith('.chat clear'):
-        parts = tmp_reast_str.split()
-        if len(parts) >= 2:
-            clear_type = parts[1] if len(parts) > 1 else ''
-            user_data = load_user_data(tmp_userID)
-            
-            if clear_type == 'prompt':
-                user_data["custom_prompt"] = ""
-                save_user_data(tmp_userID, user_data)
-                plugin_event.reply(dictStrCustom['strPersonalPromptCleared'])
-                return
-            elif clear_type == 'system':
-                user_data["system_prompt"] = ""
-                save_user_data(tmp_userID, user_data)
-                plugin_event.reply(dictStrCustom['strPersonalSystemCleared'])
-                return
-    
-    elif tmp_reast_str.startswith('.deepseek'):
+    # 先处理管理员指令
+    if tmp_reast_str.startswith('.deepseek'):
         is_master = is_master_user(tmp_userID)
         
         parts = tmp_reast_str.split()
@@ -1088,6 +961,172 @@ Debug模式: {'开启' if config["debug_mode"] else '关闭'}
         else:
             plugin_event.reply("未知命令，使用 .deepseek help 查看帮助")
             return
+    
+    # 处理用户 .chat 指令 - 重新设计解析逻辑
+    elif tmp_reast_str.startswith('.chat'):
+        parts = tmp_reast_str.split()
+        
+        if len(parts) < 2:
+            plugin_event.reply("格式错误，使用 .chat help 查看帮助")
+            return
+        
+        sub_command = parts[1]
+        
+        if sub_command == 'help':
+            dictTValue_local['tCooldown'] = str(config["cooldown_time"])
+            dictTValue_local['tContext'] = str(config["max_context"])
+            tmp_reply_str = format_reply_str(dictStrCustom['strHelpCommon'], dictTValue_local)
+            plugin_event.reply(tmp_reply_str)
+            return
+        
+        elif sub_command == 'clear':
+            if len(parts) == 2:  # .chat clear（清除会话）
+                if clear_user_session(tmp_userID):
+                    plugin_event.reply(dictStrCustom['strClearSuccess'])
+                else:
+                    plugin_event.reply(dictStrCustom['strClearFailed'])
+                return
+            elif len(parts) >= 3:  # .chat clear prompt/system
+                clear_type = parts[2]
+                user_data = load_user_data(tmp_userID)
+                
+                if clear_type == 'prompt':
+                    user_data["custom_prompt"] = ""
+                    save_user_data(tmp_userID, user_data)
+                    plugin_event.reply(dictStrCustom['strPersonalPromptCleared'])
+                    return
+                elif clear_type == 'system':
+                    user_data["system_prompt"] = ""
+                    save_user_data(tmp_userID, user_data)
+                    plugin_event.reply(dictStrCustom['strPersonalSystemCleared'])
+                    return
+                else:
+                    plugin_event.reply("未知清除类型，可用: prompt, system")
+                    return
+            else:
+                plugin_event.reply("格式错误，正确格式: .chat clear 或 .chat clear prompt/system")
+                return
+        
+        elif sub_command == 'config' or sub_command == 'myconfig':
+            user_data = load_user_data(tmp_userID)
+            dictTValue_local['tPersonalPrompt'] = user_data.get("custom_prompt", "未设置")
+            dictTValue_local['tPersonalSystem'] = user_data.get("system_prompt", "未设置")
+            dictTValue_local['tUseCount'] = str(user_data["use_count"])
+            if user_data["last_used"]:
+                dictTValue_local['tLastUsed'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(user_data["last_used"]))
+            else:
+                dictTValue_local['tLastUsed'] = '从未使用'
+            tmp_reply_str = format_reply_str(dictStrCustom['strPersonalConfig'], dictTValue_local)
+            plugin_event.reply(tmp_reply_str)
+            return
+        
+        elif sub_command == 'show':
+            if len(parts) >= 3:
+                show_type = parts[2]
+                user_data = load_user_data(tmp_userID)
+                
+                if show_type == 'prompt':
+                    content = user_data.get("custom_prompt", "未设置")
+                    dictTValue_local['tContent'] = content
+                    tmp_reply_str = format_reply_str(dictStrCustom['strPersonalPrompt'], dictTValue_local)
+                    plugin_event.reply(tmp_reply_str)
+                    return
+                elif show_type == 'system':
+                    content = user_data.get("system_prompt", "未设置")
+                    dictTValue_local['tContent'] = content
+                    tmp_reply_str = format_reply_str(dictStrCustom['strPersonalSystem'], dictTValue_local)
+                    plugin_event.reply(tmp_reply_str)
+                    return
+                else:
+                    plugin_event.reply("未知显示类型，可用: prompt, system")
+                    return
+            else:
+                plugin_event.reply("格式错误，正确格式: .chat show prompt 或 .chat show system")
+                return
+        
+        elif sub_command == 'set':
+            if len(parts) >= 4:
+                set_type = parts[2]
+                set_value = ' '.join(parts[3:])
+                
+                if not set_value:
+                    plugin_event.reply("设置内容不能为空")
+                    return
+                
+                user_data = load_user_data(tmp_userID)
+                
+                if set_type == 'prompt':
+                    user_data["custom_prompt"] = set_value
+                    save_user_data(tmp_userID, user_data)
+                    plugin_event.reply(dictStrCustom['strPersonalPromptSet'])
+                    return
+                elif set_type == 'system':
+                    user_data["system_prompt"] = set_value
+                    save_user_data(tmp_userID, user_data)
+                    plugin_event.reply(dictStrCustom['strPersonalSystemSet'])
+                    return
+                else:
+                    plugin_event.reply("未知设置类型，可用: prompt, system")
+                    return
+            else:
+                plugin_event.reply("格式错误，正确格式: .chat set prompt <内容> 或 .chat set system <内容>")
+                return
+        
+        else:
+            plugin_event.reply("未知指令，使用 .chat help 查看帮助")
+            return
+    
+    # 最后处理 AI 对话 #chat
+    elif tmp_reast_str.startswith('#chat'):
+        if not config["api_key"]:
+            plugin_event.reply("API Key未配置，请联系管理员")
+            return
+        
+        if not config.get("global_enabled", True):
+            plugin_event.reply(dictStrCustom['strGlobalDisabled'])
+            return
+        
+        if config.get("enable_review", False):
+            plugin_event.reply(dictStrCustom['strReviewProcessing'])
+        
+        if plugin_event.plugin_info['func_type'] == 'group_message' and not config["enable_group"]:
+            return
+        if plugin_event.plugin_info['func_type'] == 'private_message' and not config["enable_private"]:
+            return
+        
+        user_data = load_user_data(tmp_userID)
+        if user_data["is_locked"]:
+            plugin_event.reply(dictStrCustom['strUserLocked'])
+            return
+        
+        banned_word = check_banned_words(tmp_reast_str)
+        if banned_word:
+            plugin_event.reply(dictStrCustom['strBannedWordFound'])
+            return
+        
+        cooldown_remaining = check_cooldown(tmp_userID)
+        if cooldown_remaining > 0:
+            dictTValue_local['tContent'] = str(cooldown_remaining)
+            tmp_reply_str = format_reply_str(dictStrCustom['strCooldown'], dictTValue_local)
+            plugin_event.reply(tmp_reply_str)
+            return
+        
+        prompt = tmp_reast_str[5:].strip()
+        if not prompt:
+            plugin_event.reply(dictStrCustom['strNoContent'])
+            return
+        
+        banned_word = check_banned_words(prompt)
+        if banned_word:
+            plugin_event.reply(dictStrCustom['strBannedWordFound'])
+            return
+        
+        response = call_deepseek_api(prompt, tmp_userID)
+        if response:
+            plugin_event.reply(response)
+        else:
+            plugin_event.reply(dictStrCustom['strAPICallFailed'])
+        return
 
 class Event(object):
     def init(plugin_event, Proc):
