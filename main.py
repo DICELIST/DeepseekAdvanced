@@ -11,6 +11,7 @@ os.makedirs(os.path.join(data_dir, 'users'), exist_ok=True)
 os.makedirs(os.path.join(data_dir, 'sessions'), exist_ok=True)
 
 config_file = os.path.join(data_dir, 'config.json')
+banned_words_file = os.path.join(data_dir, 'banned_words.json')
 default_config = {
     "api_key": "",
     "api_endpoint": "https://api.deepseek.com/v1/chat/completions",
@@ -22,7 +23,17 @@ default_config = {
     "temperature": 0.7,
     "enable_group": True,
     "enable_private": True,
-    "debug_mode": False
+    "debug_mode": False,
+    "default_prompt": "你是一个有用的助手",
+    "system_prompt": "",
+    "global_enabled": True,
+    "enable_filter": True,
+    "enable_review": False
+}
+
+default_banned_words = {
+    "words": [],
+    "enable_filter": True
 }
 
 dictStrCustom = {
@@ -33,6 +44,13 @@ dictStrCustom = {
 使用 #chat [内容] 与AI对话
 .chat help - 查看帮助信息
 .chat clear - 清空自己的会话记录
+.chat config - 查看个人设置
+.chat show prompt - 查看个人预设提示词
+.chat show system - 查看个人系统提示词
+.chat set prompt <内容> - 设置个人预设提示词
+.chat set system <内容> - 设置个人系统提示词
+.chat clear prompt - 清空个人预设提示词
+.chat clear system - 清空个人系统提示词
 系统冷却时间: {tCooldown}秒
 上下文记忆: {tContext}段''',
     'strHelpMaster': '''【DeepSeek AI 管理指令】
@@ -52,35 +70,92 @@ dictStrCustom = {
 .deepseek set model <模型名> - 设置AI模型
 .deepseek set apikey <key> - 设置API Key
 .deepseek set endpoint <url> - 设置API端点
+.deepseek set prompt <预设内容> - 设置公共预设提示词
+.deepseek set system <内容> - 设置公共系统提示词
 
 🔧 功能开关:
 .deepseek toggle group - 切换群聊功能
 .deepseek toggle private - 切换私聊功能
 .deepseek toggle debug - 切换Debug模式
+.deepseek toggle filter - 切换违禁词过滤
+.deepseek toggle global - 切换全局AI功能
+.deepseek toggle review - 切换二次内容审核
+
+🛠️ 违禁词管理:
+.deepseek ban add <词语> - 添加违禁词
+.deepseek ban remove <词语> - 移除违禁词
+.deepseek ban list - 查看违禁词列表
+.deepseek ban clear - 清空违禁词库
+.deepseek ban toggle - 开关违禁词过滤
+
+🗑️ 数据清理:
+.deepseek clean all - 清理所有用户会话记录
+.deepseek clean before <天数> - 清理指定天数前的记录
+.deepseek clean users <数量> - 清理最早N个用户记录
 
 🛠️ 系统维护:
 .deepseek reset - 重置系统配置
 .deepseek cleanup - 清理过期数据
 .deepseek status - 查看系统状态
-.deepseek config - 查看详细配置''',
+.deepseek config - 查看详细配置
+.deepseek prompt - 查看当前公共预设
+.deepseek system - 查看当前公共系统提示词''',
     'strNoPermission': '权限不足，无法执行此操作',
     'strConfigUpdated': '配置已更新: {tContent}',
     'strUserNotFound': '用户不存在',
     'strUserLockedSuccess': '用户 {tTargetName} 已锁定',
     'strUserUnlockedSuccess': '用户 {tTargetName} 已解锁',
     'strUserClearedSuccess': '用户 {tTargetName} 记录已清空',
-    'strUserDetail': '用户 {tTargetName} 详情:\n使用次数: {tUseCount}\n状态: {tStatus}\n最后使用: {tLastUsed}',
     'strSystemStatus': '''系统状态:
 用户总数: {tUserCount}
 群聊功能: {tGroupStatus}
 私聊功能: {tPrivateStatus}
 冷却时间: {tCooldown}秒
 上下文限制: {tContext}段
-Debug模式: {tDebugStatus}''',
+Debug模式: {tDebugStatus}
+违禁词过滤: {tFilterStatus}
+全局AI功能: {tGlobalStatus}
+二次审核: {tReviewStatus}
+公共预设: {tDefaultPrompt}
+公共系统提示词: {tSystemPrompt}''',
     'strAPICallFailed': 'AI服务暂时不可用，请稍后再试',
     'strDebugInfo': 'Debug信息: {tContent}',
     'strClearSuccess': '已清空你的会话记录',
-    'strClearFailed': '清空会话记录失败'
+    'strClearFailed': '清空会话记录失败',
+    'strBannedWordFound': '内容包含违禁词汇，请修改后重新发送',
+    'strBanAddSuccess': '已添加违禁词: {tContent}',
+    'strBanAddFailed': '添加违禁词失败',
+    'strBanRemoveSuccess': '已移除违禁词: {tContent}',
+    'strBanRemoveFailed': '移除违禁词失败，该词语不存在',
+    'strBanListEmpty': '违禁词库为空',
+    'strBanClearSuccess': '已清空违禁词库',
+    'strBanToggleSuccess': '违禁词过滤已{tContent}',
+    'strPromptUpdated': '公共预设已更新',
+    'strSystemPromptUpdated': '公共系统提示词已更新',
+    'strSystemPromptCleared': '公共系统提示词已清空',
+    'strCurrentPrompt': '当前公共预设: {tContent}',
+    'strCurrentSystem': '当前公共系统提示词: {tContent}',
+    'strPersonalConfig': '''你的个人设置:
+预设提示词: {tPersonalPrompt}
+系统提示词: {tPersonalSystem}
+使用次数: {tUseCount}
+最后使用: {tLastUsed}''',
+    'strPersonalPrompt': '个人预设提示词: {tContent}',
+    'strPersonalSystem': '个人系统提示词: {tContent}',
+    'strPersonalPromptSet': '个人预设提示词已设置',
+    'strPersonalSystemSet': '个人系统提示词已设置',
+    'strPersonalPromptCleared': '个人预设提示词已清空',
+    'strPersonalSystemCleared': '个人系统提示词已清空',
+    'strGlobalDisabled': 'AI功能暂时关闭，请联系管理员',
+    'strGlobalEnabled': 'AI功能已{tContent}',
+    'strReviewEnabled': '二次审核功能已{tContent}',
+    'strReviewConfirm': '开启后会增加tokens消耗量，是否确认开启？请再次输入 .deepseek toggle review 确认',
+    'strReviewProcessing': '已开启二次审核，生成时间可能略长，请耐心等待',
+    'strReviewBlocked': '⚠️ 内容包含违规信息，用户已被锁定',
+    'strReviewFailed': '⚠️ 内容审核失败，请稍后重试',
+    'strCleanAllSuccess': '已清理所有用户会话记录，共 {tContent} 个',
+    'strCleanBeforeSuccess': '已清理 {tContent} 天前的会话记录，共 {tCount} 个',
+    'strCleanUsersSuccess': '已清理最早 {tContent} 个用户的会话记录'
 }
 
 dictTValue = {
@@ -94,11 +169,18 @@ dictTValue = {
     'tUserCount': '0',
     'tGroupStatus': '开启',
     'tPrivateStatus': '开启',
-    'tDebugStatus': '关闭'
+    'tDebugStatus': '关闭',
+    'tFilterStatus': '开启',
+    'tGlobalStatus': '开启',
+    'tReviewStatus': '关闭',
+    'tDefaultPrompt': '你是一个有用的助手',
+    'tSystemPrompt': '未设置',
+    'tPersonalPrompt': '未设置',
+    'tPersonalSystem': '未设置',
+    'tCount': '0'
 }
 
-# 在这里定义Master用户ID列表
-MASTER_USERS = ['2139497594']  # 将你的QQ号添加到Master列表
+MASTER_USERS = ['2139497594']
 
 def load_config():
     if not os.path.exists(config_file):
@@ -118,6 +200,24 @@ def save_config(config):
     with open(config_file, 'w', encoding='utf-8') as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
 
+def load_banned_words():
+    if not os.path.exists(banned_words_file):
+        save_banned_words(default_banned_words)
+        return default_banned_words.copy()
+    try:
+        with open(banned_words_file, 'r', encoding='utf-8') as f:
+            banned_words_data = json.load(f)
+            for key in default_banned_words:
+                if key not in banned_words_data:
+                    banned_words_data[key] = default_banned_words[key]
+            return banned_words_data
+    except:
+        return default_banned_words.copy()
+
+def save_banned_words(banned_words_data):
+    with open(banned_words_file, 'w', encoding='utf-8') as f:
+        json.dump(banned_words_data, f, ensure_ascii=False, indent=2)
+
 def get_user_file(user_id):
     return os.path.join(data_dir, 'users', f'user_{user_id}.json')
 
@@ -129,6 +229,7 @@ def load_user_data(user_id):
     default_user = {
         "user_id": user_id,
         "custom_prompt": "",
+        "system_prompt": "",
         "is_locked": False,
         "use_count": 0,
         "last_used": None
@@ -194,7 +295,6 @@ def is_master_user(user_id):
     return str(user_id) in MASTER_USERS
 
 def clear_user_session(user_id):
-    """清空用户会话记录"""
     try:
         session_file = get_session_file(user_id)
         if os.path.exists(session_file):
@@ -203,13 +303,47 @@ def clear_user_session(user_id):
     except:
         return False
 
+def check_banned_words(text):
+    banned_words_data = load_banned_words()
+    if not banned_words_data.get("enable_filter", True):
+        return None
+    
+    text_lower = text.lower()
+    for word in banned_words_data.get("words", []):
+        if word.lower() in text_lower:
+            return word
+    return None
+
+def build_messages(user_input, user_id):
+    config = load_config()
+    user_data = load_user_data(user_id)
+    
+    messages = []
+    
+    system_content = user_data.get("system_prompt", "")
+    if not system_content:
+        system_content = config.get("system_prompt", "")
+    
+    if system_content:
+        messages.append({"role": "system", "content": system_content})
+    
+    session_data = load_session_data(user_id)
+    messages.extend(list(session_data["history"]))
+    
+    preset_content = user_data.get("custom_prompt", "")
+    if not preset_content:
+        preset_content = config.get("default_prompt", "")
+    
+    if preset_content:
+        messages.append({"role": "user", "content": preset_content})
+    
+    messages.append({"role": "user", "content": user_input})
+    
+    return messages
+
 def unity_reply(plugin_event):
     config = load_config()
-    
-    if plugin_event.plugin_info['func_type'] == 'group_message' and not config["enable_group"]:
-        return
-    if plugin_event.plugin_info['func_type'] == 'private_message' and not config["enable_private"]:
-        return
+    banned_words_data = load_banned_words()
     
     tmp_reast_str = plugin_event.data.message
     tmp_userID = plugin_event.data.user_id
@@ -220,15 +354,8 @@ def unity_reply(plugin_event):
     def call_deepseek_api(prompt, user_id):
         try:
             user_data = load_user_data(user_id)
-            session_data = load_session_data(user_id)
             
-            system_prompt = user_data.get("custom_prompt", "")
-            if not system_prompt:
-                system_prompt = "你是一个有用的助手"
-            
-            messages = [{"role": "system", "content": system_prompt}]
-            messages.extend(list(session_data["history"]))
-            messages.append({"role": "user", "content": prompt})
+            messages = build_messages(prompt, user_id)
             
             response = requests.post(
                 config["api_endpoint"],
@@ -238,26 +365,66 @@ def unity_reply(plugin_event):
                     "messages": messages,
                     "temperature": config["temperature"],
                     "max_tokens": config["max_tokens"],
-                    "stream": False
+                    "stream": True
                 },
-                timeout=30
+                timeout=60
             )
             
             if response.status_code == 200:
-                result = response.json()
-                assistant_reply = result['choices'][0]['message']['content']
+                assistant_reply = ""
                 
-                session_data["history"].append({"role": "user", "content": prompt})
-                session_data["history"].append({"role": "assistant", "content": assistant_reply})
-                session_data["last_active"] = time.time()
+                for line in response.iter_lines():
+                    if line:
+                        line = line.decode('utf-8')
+                        if line.startswith('data: '):
+                            data = line[6:]
+                            if data == '[DONE]':
+                                break
+                            try:
+                                chunk = json.loads(data)
+                                if 'choices' in chunk and chunk['choices']:
+                                    delta = chunk['choices'][0].get('delta', {})
+                                    if 'content' in delta:
+                                        assistant_reply += delta['content']
+                            except:
+                                continue
                 
-                user_data["use_count"] += 1
-                user_data["last_used"] = time.time()
-                
-                save_session_data(user_id, session_data)
-                save_user_data(user_id, user_data)
-                
-                return assistant_reply
+                if config.get("enable_review", False):
+                    review_result = content_review(assistant_reply, config)
+                    if review_result == "1":
+                        user_data["is_locked"] = True
+                        user_data["lock_reason"] = "生成违规内容"
+                        user_data["lock_time"] = time.time()
+                        save_user_data(user_id, user_data)
+                        return dictStrCustom['strReviewBlocked']
+                    elif review_result == "0":
+                        session_data = load_session_data(user_id)
+                        session_data["history"].append({"role": "user", "content": prompt})
+                        session_data["history"].append({"role": "assistant", "content": assistant_reply})
+                        session_data["last_active"] = time.time()
+                        
+                        user_data["use_count"] += 1
+                        user_data["last_used"] = time.time()
+                        
+                        save_session_data(user_id, session_data)
+                        save_user_data(user_id, user_data)
+                        
+                        return assistant_reply
+                    else:
+                        return dictStrCustom['strReviewFailed']
+                else:
+                    session_data = load_session_data(user_id)
+                    session_data["history"].append({"role": "user", "content": prompt})
+                    session_data["history"].append({"role": "assistant", "content": assistant_reply})
+                    session_data["last_active"] = time.time()
+                    
+                    user_data["use_count"] += 1
+                    user_data["last_used"] = time.time()
+                    
+                    save_session_data(user_id, session_data)
+                    save_user_data(user_id, user_data)
+                    
+                    return assistant_reply
             else:
                 if config["debug_mode"]:
                     return f"API调用失败: {response.status_code} - {response.text}"
@@ -268,7 +435,33 @@ def unity_reply(plugin_event):
                 return f"API调用异常: {str(e)}"
             else:
                 return None
-    
+
+    def content_review(content, config):
+        try:
+            review_prompt = "对括号内的内容进行审核。如果包含违规内容，就返回数字1，不包含就返回数字0。不需要其他返回内容，只需要返回一个阿拉伯数字就可以。\n【" + content + "】"
+            
+            review_response = requests.post(
+                config["api_endpoint"],
+                headers={"Authorization": f"Bearer {config['api_key']}"},
+                json={
+                    "model": config["default_model"],
+                    "messages": [{"role": "user", "content": review_prompt}],
+                    "temperature": 0.1,
+                    "max_tokens": 5,
+                    "stream": False
+                },
+                timeout=15
+            )
+            
+            if review_response.status_code == 200:
+                result = review_response.json()
+                review_result = result['choices'][0]['message']['content'].strip()
+                return review_result
+            else:
+                return None
+        except Exception as e:
+            return None
+
     def check_cooldown(user_id):
         user_data = load_user_data(user_id)
         if user_data["last_used"]:
@@ -283,9 +476,26 @@ def unity_reply(plugin_event):
             plugin_event.reply("API Key未配置，请联系管理员")
             return
         
+        if not config.get("global_enabled", True):
+            plugin_event.reply(dictStrCustom['strGlobalDisabled'])
+            return
+        
+        if config.get("enable_review", False):
+            plugin_event.reply(dictStrCustom['strReviewProcessing'])
+        
+        if plugin_event.plugin_info['func_type'] == 'group_message' and not config["enable_group"]:
+            return
+        if plugin_event.plugin_info['func_type'] == 'private_message' and not config["enable_private"]:
+            return
+        
         user_data = load_user_data(tmp_userID)
         if user_data["is_locked"]:
             plugin_event.reply(dictStrCustom['strUserLocked'])
+            return
+        
+        banned_word = check_banned_words(tmp_reast_str)
+        if banned_word:
+            plugin_event.reply(dictStrCustom['strBannedWordFound'])
             return
         
         cooldown_remaining = check_cooldown(tmp_userID)
@@ -298,6 +508,11 @@ def unity_reply(plugin_event):
         prompt = tmp_reast_str[5:].strip()
         if not prompt:
             plugin_event.reply(dictStrCustom['strNoContent'])
+            return
+        
+        banned_word = check_banned_words(prompt)
+        if banned_word:
+            plugin_event.reply(dictStrCustom['strBannedWordFound'])
             return
         
         response = call_deepseek_api(prompt, tmp_userID)
@@ -315,17 +530,82 @@ def unity_reply(plugin_event):
         return
     
     elif tmp_reast_str == '.chat clear':
-        # 清空自己的会话记录
         if clear_user_session(tmp_userID):
             plugin_event.reply(dictStrCustom['strClearSuccess'])
         else:
             plugin_event.reply(dictStrCustom['strClearFailed'])
         return
     
+    elif tmp_reast_str == '.chat config' or tmp_reast_str == '.chat myconfig':
+        user_data = load_user_data(tmp_userID)
+        dictTValue_local['tPersonalPrompt'] = user_data.get("custom_prompt", "未设置")
+        dictTValue_local['tPersonalSystem'] = user_data.get("system_prompt", "未设置")
+        dictTValue_local['tUseCount'] = str(user_data["use_count"])
+        if user_data["last_used"]:
+            dictTValue_local['tLastUsed'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(user_data["last_used"]))
+        else:
+            dictTValue_local['tLastUsed'] = '从未使用'
+        tmp_reply_str = format_reply_str(dictStrCustom['strPersonalConfig'], dictTValue_local)
+        plugin_event.reply(tmp_reply_str)
+        return
+    
+    elif tmp_reast_str.startswith('.chat show'):
+        parts = tmp_reast_str.split()
+        if len(parts) >= 2:
+            show_type = parts[1] if len(parts) > 1 else ''
+            user_data = load_user_data(tmp_userID)
+            
+            if show_type == 'prompt':
+                content = user_data.get("custom_prompt", "未设置")
+                dictTValue_local['tContent'] = content
+                tmp_reply_str = format_reply_str(dictStrCustom['strPersonalPrompt'], dictTValue_local)
+                plugin_event.reply(tmp_reply_str)
+                return
+            elif show_type == 'system':
+                content = user_data.get("system_prompt", "未设置")
+                dictTValue_local['tContent'] = content
+                tmp_reply_str = format_reply_str(dictStrCustom['strPersonalSystem'], dictTValue_local)
+                plugin_event.reply(tmp_reply_str)
+                return
+    
+    elif tmp_reast_str.startswith('.chat set'):
+        parts = tmp_reast_str.split()
+        if len(parts) >= 3:
+            set_type = parts[1] if len(parts) > 1 else ''
+            set_value = ' '.join(parts[2:])
+            
+            user_data = load_user_data(tmp_userID)
+            
+            if set_type == 'prompt':
+                user_data["custom_prompt"] = set_value
+                save_user_data(tmp_userID, user_data)
+                plugin_event.reply(dictStrCustom['strPersonalPromptSet'])
+                return
+            elif set_type == 'system':
+                user_data["system_prompt"] = set_value
+                save_user_data(tmp_userID, user_data)
+                plugin_event.reply(dictStrCustom['strPersonalSystemSet'])
+                return
+    
+    elif tmp_reast_str.startswith('.chat clear'):
+        parts = tmp_reast_str.split()
+        if len(parts) >= 2:
+            clear_type = parts[1] if len(parts) > 1 else ''
+            user_data = load_user_data(tmp_userID)
+            
+            if clear_type == 'prompt':
+                user_data["custom_prompt"] = ""
+                save_user_data(tmp_userID, user_data)
+                plugin_event.reply(dictStrCustom['strPersonalPromptCleared'])
+                return
+            elif clear_type == 'system':
+                user_data["system_prompt"] = ""
+                save_user_data(tmp_userID, user_data)
+                plugin_event.reply(dictStrCustom['strPersonalSystemCleared'])
+                return
+    
     elif tmp_reast_str.startswith('.deepseek'):
-        if not is_master_user(tmp_userID):
-            plugin_event.reply(dictStrCustom['strNoPermission'])
-            return
+        is_master = is_master_user(tmp_userID)
         
         parts = tmp_reast_str.split()
         if len(parts) < 2:
@@ -335,10 +615,16 @@ def unity_reply(plugin_event):
         command = parts[1]
         
         if command == 'help':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
             plugin_event.reply(dictStrCustom['strHelpMaster'])
             return
         
         elif command == 'status':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
             user_ids = get_all_users()
             dictTValue_local['tUserCount'] = str(len(user_ids))
             dictTValue_local['tGroupStatus'] = '开启' if config["enable_group"] else '关闭'
@@ -346,11 +632,19 @@ def unity_reply(plugin_event):
             dictTValue_local['tCooldown'] = str(config["cooldown_time"])
             dictTValue_local['tContext'] = str(config["max_context"])
             dictTValue_local['tDebugStatus'] = '开启' if config["debug_mode"] else '关闭'
+            dictTValue_local['tFilterStatus'] = '开启' if banned_words_data.get("enable_filter", True) else '关闭'
+            dictTValue_local['tGlobalStatus'] = '开启' if config.get("global_enabled", True) else '关闭'
+            dictTValue_local['tReviewStatus'] = '开启' if config.get("enable_review", False) else '关闭'
+            dictTValue_local['tDefaultPrompt'] = config.get("default_prompt", "你是一个有用的助手")[:50] + ("..." if len(config.get("default_prompt", "")) > 50 else "")
+            dictTValue_local['tSystemPrompt'] = config.get("system_prompt", "未设置")[:50] + ("..." if len(config.get("system_prompt", "")) > 50 else "")
             tmp_reply_str = format_reply_str(dictStrCustom['strSystemStatus'], dictTValue_local)
             plugin_event.reply(tmp_reply_str)
             return
         
         elif command == 'config':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
             config_info = f'''当前配置:
 冷却时间: {config["cooldown_time"]}秒
 上下文限制: {config["max_context"]}段
@@ -361,11 +655,38 @@ AI模型: {config["default_model"]}
 API端点: {config["api_endpoint"]}
 群聊功能: {'开启' if config["enable_group"] else '关闭'}
 私聊功能: {'开启' if config["enable_private"] else '关闭'}
-Debug模式: {'开启' if config["debug_mode"] else '关闭'}'''
+Debug模式: {'开启' if config["debug_mode"] else '关闭'}
+违禁词过滤: {'开启' if banned_words_data.get("enable_filter", True) else '关闭'}
+全局AI功能: {'开启' if config.get("global_enabled", True) else '关闭'}
+公共预设: {config.get("default_prompt", "你是一个有用的助手")[:100]}{'...' if len(config.get("default_prompt", "")) > 100 else ''}
+公共系统提示词: {config.get("system_prompt", "未设置")[:100]}{'...' if len(config.get("system_prompt", "")) > 100 else ''}'''
             plugin_event.reply(config_info)
             return
         
+        elif command == 'prompt':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
+            current_prompt = config.get("default_prompt", "你是一个有用的助手")
+            dictTValue_local['tContent'] = current_prompt
+            tmp_reply_str = format_reply_str(dictStrCustom['strCurrentPrompt'], dictTValue_local)
+            plugin_event.reply(tmp_reply_str)
+            return
+        
+        elif command == 'system':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
+            current_system = config.get("system_prompt", "未设置")
+            dictTValue_local['tContent'] = current_system
+            tmp_reply_str = format_reply_str(dictStrCustom['strCurrentSystem'], dictTValue_local)
+            plugin_event.reply(tmp_reply_str)
+            return
+        
         elif command == 'users':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
             user_ids = get_all_users()
             if user_ids:
                 user_list = "用户列表:\n" + "\n".join([f"- {uid}" for uid in user_ids[:20]])
@@ -377,13 +698,15 @@ Debug模式: {'开启' if config["debug_mode"] else '关闭'}'''
             return
         
         elif command == 'user':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
+            
             if len(parts) < 3:
                 plugin_event.reply("请指定用户ID，例如: .deepseek user 123456")
                 return
             
-            # 处理子命令或直接用户ID
             if len(parts) >= 4:
-                # 有子命令的情况: .deepseek user lock 123456
                 sub_command = parts[2]
                 target_user_id = parts[3]
                 
@@ -417,7 +740,6 @@ Debug模式: {'开启' if config["debug_mode"] else '关闭'}'''
                     plugin_event.reply("未知子命令，可用: lock, unlock, clear")
                     return
             else:
-                # 直接用户ID的情况: .deepseek user 123456
                 target_user_id = parts[2]
                 user_data = load_user_data(target_user_id)
                 dictTValue_local['tTargetName'] = target_user_id
@@ -432,8 +754,12 @@ Debug模式: {'开启' if config["debug_mode"] else '关闭'}'''
                 return
         
         elif command == 'set' and len(parts) >= 4:
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
+            
             set_type = parts[2]
-            set_value = parts[3]
+            set_value = ' '.join(parts[3:])
             
             if set_type == 'cooldown':
                 try:
@@ -512,8 +838,24 @@ Debug模式: {'开启' if config["debug_mode"] else '关闭'}'''
                 tmp_reply_str = format_reply_str(dictStrCustom['strConfigUpdated'], dictTValue_local)
                 plugin_event.reply(tmp_reply_str)
                 return
+            
+            elif set_type == 'prompt':
+                config["default_prompt"] = set_value
+                save_config(config)
+                plugin_event.reply(dictStrCustom['strPromptUpdated'])
+                return
+            
+            elif set_type == 'system':
+                config["system_prompt"] = set_value
+                save_config(config)
+                plugin_event.reply(dictStrCustom['strSystemPromptUpdated'])
+                return
         
         elif command == 'toggle' and len(parts) >= 3:
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
+            
             toggle_type = parts[2]
             
             if toggle_type == 'group':
@@ -542,13 +884,189 @@ Debug模式: {'开启' if config["debug_mode"] else '关闭'}'''
                 tmp_reply_str = format_reply_str(dictStrCustom['strConfigUpdated'], dictTValue_local)
                 plugin_event.reply(tmp_reply_str)
                 return
+            
+            elif toggle_type == 'filter':
+                banned_words_data["enable_filter"] = not banned_words_data.get("enable_filter", True)
+                save_banned_words(banned_words_data)
+                status = "开启" if banned_words_data["enable_filter"] else "关闭"
+                dictTValue_local['tContent'] = status
+                tmp_reply_str = format_reply_str(dictStrCustom['strBanToggleSuccess'], dictTValue_local)
+                plugin_event.reply(tmp_reply_str)
+                return
+            
+            elif toggle_type == 'global':
+                config["global_enabled"] = not config.get("global_enabled", True)
+                save_config(config)
+                status = "开启" if config["global_enabled"] else "关闭"
+                dictTValue_local['tContent'] = status
+                tmp_reply_str = format_reply_str(dictStrCustom['strGlobalEnabled'], dictTValue_local)
+                plugin_event.reply(tmp_reply_str)
+                return
+            
+            elif toggle_type == 'review':
+                config["enable_review"] = not config.get("enable_review", False)
+                save_config(config)
+                status = "开启" if config["enable_review"] else "关闭"
+                dictTValue_local['tContent'] = f"二次审核已{status}"
+                tmp_reply_str = format_reply_str(dictStrCustom['strConfigUpdated'], dictTValue_local)
+                plugin_event.reply(tmp_reply_str)
+                return
+        
+        elif command == 'ban':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
+            
+            if len(parts) < 3:
+                plugin_event.reply("使用: .deepseek ban [add|remove|list|clear|toggle]")
+                return
+            
+            sub_command = parts[2]
+            
+            if sub_command == 'add' and len(parts) >= 4:
+                word_to_add = ' '.join(parts[3:])
+                banned_words_data = load_banned_words()
+                if word_to_add not in banned_words_data.get("words", []):
+                    banned_words_data["words"].append(word_to_add)
+                    save_banned_words(banned_words_data)
+                    dictTValue_local['tContent'] = word_to_add
+                    tmp_reply_str = format_reply_str(dictStrCustom['strBanAddSuccess'], dictTValue_local)
+                    plugin_event.reply(tmp_reply_str)
+                else:
+                    plugin_event.reply("该违禁词已存在")
+                return
+            
+            elif sub_command == 'remove' and len(parts) >= 4:
+                word_to_remove = ' '.join(parts[3:])
+                banned_words_data = load_banned_words()
+                if word_to_remove in banned_words_data.get("words", []):
+                    banned_words_data["words"].remove(word_to_remove)
+                    save_banned_words(banned_words_data)
+                    dictTValue_local['tContent'] = word_to_remove
+                    tmp_reply_str = format_reply_str(dictStrCustom['strBanRemoveSuccess'], dictTValue_local)
+                    plugin_event.reply(tmp_reply_str)
+                else:
+                    plugin_event.reply(dictStrCustom['strBanRemoveFailed'])
+                return
+            
+            elif sub_command == 'list':
+                banned_words_data = load_banned_words()
+                words = banned_words_data.get("words", [])
+                if words:
+                    word_list = "违禁词列表:\n" + "\n".join([f"{i+1}. {word}" for i, word in enumerate(words)])
+                    plugin_event.reply(word_list)
+                else:
+                    plugin_event.reply(dictStrCustom['strBanListEmpty'])
+                return
+            
+            elif sub_command == 'clear':
+                banned_words_data = load_banned_words()
+                banned_words_data["words"] = []
+                save_banned_words(banned_words_data)
+                plugin_event.reply(dictStrCustom['strBanClearSuccess'])
+                return
+            
+            elif sub_command == 'toggle':
+                banned_words_data = load_banned_words()
+                banned_words_data["enable_filter"] = not banned_words_data.get("enable_filter", True)
+                save_banned_words(banned_words_data)
+                status = "开启" if banned_words_data["enable_filter"] else "关闭"
+                dictTValue_local['tContent'] = status
+                tmp_reply_str = format_reply_str(dictStrCustom['strBanToggleSuccess'], dictTValue_local)
+                plugin_event.reply(tmp_reply_str)
+                return
+            
+            else:
+                plugin_event.reply("未知子命令，可用: add, remove, list, clear, toggle")
+                return
+        
+        elif command == 'clean':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
+            
+            if len(parts) < 3:
+                plugin_event.reply("使用: .deepseek clean [all|before|users]")
+                return
+            
+            sub_command = parts[2]
+            
+            if sub_command == 'all':
+                sessions_dir = os.path.join(data_dir, 'sessions')
+                cleaned_count = 0
+                if os.path.exists(sessions_dir):
+                    for filename in os.listdir(sessions_dir):
+                        if filename.startswith('session_') and filename.endswith('.json'):
+                            os.remove(os.path.join(sessions_dir, filename))
+                            cleaned_count += 1
+                dictTValue_local['tContent'] = str(cleaned_count)
+                tmp_reply_str = format_reply_str(dictStrCustom['strCleanAllSuccess'], dictTValue_local)
+                plugin_event.reply(tmp_reply_str)
+                return
+            
+            elif sub_command == 'before' and len(parts) >= 4:
+                try:
+                    days = int(parts[3])
+                    cutoff_time = time.time() - days * 24 * 3600
+                    cleaned_count = 0
+                    sessions_dir = os.path.join(data_dir, 'sessions')
+                    if os.path.exists(sessions_dir):
+                        for filename in os.listdir(sessions_dir):
+                            if filename.startswith('session_') and filename.endswith('.json'):
+                                filepath = os.path.join(sessions_dir, filename)
+                                try:
+                                    with open(filepath, 'r', encoding='utf-8') as f:
+                                        session_data = json.load(f)
+                                    if session_data.get("last_active", 0) < cutoff_time:
+                                        os.remove(filepath)
+                                        cleaned_count += 1
+                                except:
+                                    pass
+                    dictTValue_local['tContent'] = str(days)
+                    dictTValue_local['tCount'] = str(cleaned_count)
+                    tmp_reply_str = format_reply_str(dictStrCustom['strCleanBeforeSuccess'], dictTValue_local)
+                    plugin_event.reply(tmp_reply_str)
+                except:
+                    plugin_event.reply("参数错误，请输入天数数字")
+                return
+            
+            elif sub_command == 'users' and len(parts) >= 4:
+                try:
+                    user_count = int(parts[3])
+                    user_ids = get_all_users()
+                    cleaned_count = 0
+                    
+                    for i, user_id in enumerate(user_ids):
+                        if i >= user_count:
+                            break
+                        if clear_user_session(user_id):
+                            cleaned_count += 1
+                    
+                    dictTValue_local['tContent'] = str(user_count)
+                    dictTValue_local['tCount'] = str(cleaned_count)
+                    tmp_reply_str = format_reply_str(dictStrCustom['strCleanUsersSuccess'], dictTValue_local)
+                    plugin_event.reply(tmp_reply_str)
+                except:
+                    plugin_event.reply("参数错误，请输入用户数量数字")
+                return
+            
+            else:
+                plugin_event.reply("未知子命令，可用: all, before, users")
+                return
         
         elif command == 'reset':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
             save_config(default_config)
+            save_banned_words(default_banned_words)
             plugin_event.reply("系统配置已重置为默认值")
             return
         
         elif command == 'cleanup':
+            if not is_master:
+                plugin_event.reply(dictStrCustom['strNoPermission'])
+                return
             cutoff_time = time.time() - 30 * 24 * 3600
             cleaned_count = 0
             sessions_dir = os.path.join(data_dir, 'sessions')
